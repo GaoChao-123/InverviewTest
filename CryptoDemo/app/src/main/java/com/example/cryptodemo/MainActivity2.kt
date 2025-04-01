@@ -3,49 +3,28 @@ package com.example.cryptodemo
 import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Bundle
-import android.view.View
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.databinding.DataBindingUtil
-import androidx.databinding.ViewDataBinding
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.example.cryptodemo.bean.CoinCurrentBean
-import com.example.cryptodemo.bean.Currency
 import com.example.cryptodemo.bean.ListDateAll
-import com.example.cryptodemo.bean.LiveRateBean
-import com.example.cryptodemo.bean.Tier
-import com.example.cryptodemo.bean.Wallet
-import com.example.cryptodemo.bean.WalletBalanceBean
 import com.example.cryptodemo.databinding.ActivityMainBinding
 import com.example.cryptodemo.utils.CalculatorUtils
-import com.example.cryptodemo.utils.Ext
-import com.example.cryptodemo.utils.GsonUtils
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.flow.flatMapMerge
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 
 class MainActivity2 : AppCompatActivity() {
 
-    // 币种列表
-    private var currenciesFlow: MutableStateFlow<List<Currency>>? = null
 
-    // 币种列表
-    private var walletFlow: MutableStateFlow<List<Wallet>>? = null
-
-    //汇率
-    private var tiersFlow: MutableStateFlow<List<Tier>>? = null
-    lateinit var listDateAll: StateFlow<ListDateAll>
+    private lateinit var listDateAll: StateFlow<ListDateAll>
     private lateinit var coinListAdapter: CoinListAdapter
 
     lateinit var binding: ActivityMainBinding
+    private lateinit var viewModel: UserViewModel
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -58,7 +37,6 @@ class MainActivity2 : AppCompatActivity() {
             insets
         }
 
-        binding = ActivityMainBinding.inflate(layoutInflater)
         initDate()
         initView()
         setSelectChain()
@@ -66,37 +44,21 @@ class MainActivity2 : AppCompatActivity() {
 
 
     private fun initDate() {
-        lifecycleScope.launch {
-            val coinCurrentBean =
-                GsonUtils.fromJson(Ext.getCurrenciesJson(), CoinCurrentBean::class.java)
-            if (coinCurrentBean.currencies.isNotEmpty()) {
-                currenciesFlow?.value = coinCurrentBean.currencies.toMutableList()
-            }
+        viewModel = ViewModelProvider(this)[UserViewModel::class.java]
+        binding = DataBindingUtil.setContentView(this, R.layout.activity_main)
+        binding.lifecycleOwner = this
 
-            val walletBean =
-                GsonUtils.fromJson(Ext.getWalletBalanceJson(), WalletBalanceBean::class.java)
-            if (walletBean.wallet.isNotEmpty()) {
-                walletBean.wallet.toMutableList()
-                walletFlow?.value = walletBean.wallet.toMutableList()
-            }
-        }
 
-        val liveRateBean = GsonUtils.fromJson(Ext.getLiveRateJson(), LiveRateBean::class.java)
-        if (liveRateBean.tiers.isNotEmpty()) {
-            liveRateBean.tiers.toMutableList().asFlow().onEach {
-                tiersFlow?.value = liveRateBean.tiers.toMutableList()
-            }
-        }
+        viewModel.getListDate()  //请求解析数据
 
-        if (currenciesFlow?.value?.isNotEmpty() == true &&
-            walletFlow?.value?.isNotEmpty() == true &&
-            tiersFlow?.value?.isNotEmpty() == true
+        if (viewModel.currenciesFlow?.value?.isNotEmpty() == true &&
+            viewModel.walletFlow?.value?.isNotEmpty() == true &&
+            viewModel.tiersFlow?.value?.isNotEmpty() == true
         ) {
-
             listDateAll.value.apply {
-                currencies = currenciesFlow?.value
-                wallet = walletFlow?.value
-                tiers = tiersFlow?.value
+                currencies = viewModel.currenciesFlow?.value
+                wallet = viewModel.walletFlow?.value
+                tiers = viewModel.tiersFlow?.value
             }
         }
     }
@@ -109,7 +71,6 @@ class MainActivity2 : AppCompatActivity() {
         binding.listRvCoin.layoutManager = CustomLinearLayoutManager(this)
         binding.listRvCoin.adapter = coinListAdapter
     }
-
 
     val selectCoinType: Int = 1   //btc
 
